@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 using ZMM001.DB;
 using System.Data;
+using System.Data.OracleClient;
+using System.Text.RegularExpressions;
 
 namespace ZMM001
 {
@@ -21,15 +23,47 @@ namespace ZMM001
         private string m_factory; // 事业部
 
         /// <summary>
-        /// 默认构造函数，年月日取当前的日期，帐套为800，工作为硅一
+        /// 取得默认的时间，先从服务器上取，如果取不到，则取本地时间
         /// </summary>
-        public ZMM001()
+        private void SetQueryDefaultDateTime()
         {
-            m_year = DateTime.Now.Year;
-            m_month = DateTime.Now.Month;
-            m_day = DateTime.Now.Day;
+            DateTime dt = DateTime.Now;
+            try
+            {
+                dt = Oracle.GetServerTime();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("取服务器时间出现如下错误，错误信息如下：");
+                Console.WriteLine(e.ToString());
+            }
+            m_year = dt.Year;
+            m_month = dt.Month;
+            m_day = dt.Day;
+        }
+
+        /// <summary>
+        /// 当只指定事业部时，别的数据取默认值
+        /// </summary>
+        /// <param name="factory"></param>
+        public ZMM001(string factory)
+        {
+            m_factory = factory;
             m_account = "800";
-            m_factory = "FTS1";
+            SetQueryDefaultDateTime();
+        }
+
+
+        /// <summary>
+        /// 当只指定事业部、帐套时，别的数据取默认值
+        /// </summary>
+        /// <param name="factory"></param>
+        /// <param name="account"></param>
+        public ZMM001(string factory, string account)
+        {
+            m_factory = factory;
+            m_account = account;
+            SetQueryDefaultDateTime();
         }
 
         /// <summary>
@@ -40,7 +74,7 @@ namespace ZMM001
         /// <param name="day">日</param>
         /// <param name="account">帐套</param>
         /// <param name="factory">事业部</param>
-        public ZMM001(int year, int month, int day, string account, string factory)
+        public ZMM001(string factory, string account, int year, int month, int day )
         {
             m_year = year;
             m_month = month;
@@ -340,8 +374,29 @@ namespace ZMM001
             return Oracle.Query(strSQL);
         }
 
+
+        /// <summary>
+        /// 清空当前的日期
+        /// </summary>
+        private void ClearData()
+        {
+            string sql = string.Format("delete from sapsr3.zmm001 where mandt = '{0}' and werks = '{1}' and lfgja = '{2}' and lfmon = '{3}' and lfday = '{4}'",
+                                        m_account, m_factory, m_year, m_month, m_day);
+            Oracle.RunNonQuery(sql);
+        }
+
+        /// <summary>
+        /// 分析进出库报表
+        /// </summary>
         public void Run()
         {
+            DateTime dtBegin = DateTime.Now;
+            Console.WriteLine("开始计算事业部:{0}, 帐套:{1}, {2}年{3}月{4}日", m_factory, m_account, m_year, m_month, m_day);
+            Console.WriteLine("开始时间：{0}", dtBegin.ToString());
+
+            // 清空数据
+            ClearData();
+
             // 保存具体的数据
             Dictionary<string, Detail> data = new Dictionary<string, Detail>();
 
@@ -365,6 +420,7 @@ namespace ZMM001
             ds542 = GetStockIn(m_year, m_month, m_account, m_factory, "542");
 
             string key;
+            Regex reg = new Regex("'");
 
             // 计算期末
             for (int i = 0; i < dsEnd.Tables[0].Rows.Count; i++)
@@ -387,6 +443,10 @@ namespace ZMM001
                 detail.mseh3 = dsEnd.Tables[0].Rows[i]["mseh3"].ToString();
                 detail.charg = dsEnd.Tables[0].Rows[i]["charg"].ToString();
                 detail.lgort = dsEnd.Tables[0].Rows[i]["lgort"].ToString();
+                detail.lgobe = dsEnd.Tables[0].Rows[i]["lgobe"].ToString();
+
+                // 过滤单引号等字符
+                detail.maktx = reg.Replace(detail.maktx, "''");
 
                 detail.initq = 0;
                 detail.initc = 0;
@@ -394,8 +454,14 @@ namespace ZMM001
                 detail.incur = 0;
                 detail.outqu = 0;
                 detail.outcu = 0;
-                detail.endqu = decimal.Parse(dsEnd.Tables[0].Rows[i]["lbkum"].ToString());
-                detail.endcu = decimal.Parse(dsEnd.Tables[0].Rows[i]["salk3"].ToString());
+                detail.endqu = decimal.Parse(dsEnd.Tables[0].Rows[i]["q1"].ToString())
+                    + decimal.Parse(dsEnd.Tables[0].Rows[i]["q2"].ToString())
+                    + decimal.Parse(dsEnd.Tables[0].Rows[i]["q3"].ToString())
+                    + decimal.Parse(dsEnd.Tables[0].Rows[i]["q4"].ToString());
+                if (detail.endqu == 0)
+                    detail.endcu = 0;
+                else
+                    detail.endcu = decimal.Parse(dsEnd.Tables[0].Rows[i]["salk3"].ToString()) * detail.endqu / decimal.Parse(dsEnd.Tables[0].Rows[i]["lbkum"].ToString());
 
                 data.Add(key, detail);
             }
@@ -414,12 +480,26 @@ namespace ZMM001
                 else
                 {
                     Detail d = data[key];
-                    d.initq = decimal.Parse(dsBegin.Tables[0].Rows[i]["lbkum"].ToString());
-                    d.initc = decimal.Parse(dsBegin.Tables[0].Rows[i]["salk3"].ToString());
+                    //d.initq = decimal.Parse(dsBegin.Tables[0].Rows[i]["lbkum"].ToString());
+                    //d.initc = decimal.Parse(dsBegin.Tables[0].Rows[i]["salk3"].ToString());
+                    d.initq = decimal.Parse(dsBegin.Tables[0].Rows[i]["q1"].ToString())
+                            + decimal.Parse(dsBegin.Tables[0].Rows[i]["q2"].ToString())
+                            + decimal.Parse(dsBegin.Tables[0].Rows[i]["q3"].ToString())
+                            + decimal.Parse(dsBegin.Tables[0].Rows[i]["q4"].ToString());
+                    if (d.initq != 0)
+                        d.initc = decimal.Parse(dsBegin.Tables[0].Rows[i]["salk3"].ToString()) * d.initq / decimal.Parse(dsBegin.Tables[0].Rows[i]["lbkum"].ToString());
+                    else
+                        d.initc = 0;
+
+                    // 计算出库金额
+                    d.outcu = d.initc + d.incur - d.endcu;
+                    d.outqu = d.initq + d.inqua - d.endqu;
+
                     data[key] = d;
                 }
             }
 
+            // 计算出入库
             CalcStockIn(data, ds101, "101");
             CalcStockIn(data, ds102, "102");
             CalcStockIn(data, ds122, "122");
@@ -431,28 +511,59 @@ namespace ZMM001
             CalcStockIn(data, ds541, "541");
             CalcStockIn(data, ds542, "542");
 
-            // 显示内容
-            //foreach (string k in data.Keys)
-            //{
-            //    if (data[k].initq > 0 && data[k].endqu > 0)
-            //        Console.WriteLine("{0}, {1}, {2}, {3}", data[k].matnr, data[k].maktx, data[k].initq, data[k].endqu);
-            //}
-
-
             // 保存到数据库里面
             string sql = "";
-            foreach(string k in data.Keys)
+            List<string> list = new List<string>();
+            foreach (string k in data.Keys)
             {
                 Detail d = data[k];
-                sql += string.Format("insert into sapsr3.zmm001(werks,mandt,lfgja,lfmon,lfday,matnr,maktx,bklas,bkbez,meins,mseh3,charg,lgort,initq,initc,inqua,incur,outqu,outcu,endqu,endcu)" +
-                                     "values({0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20}",
-                                     d.werks, d.mandt, d.lfgja, d.lfmon, d.lfday, d.matnr, d.maktx, d.bklas, d.bkbez, d.meins, d.mseh3, d.charg, d.lgort,
-                                     d.initq, d.initc, d.inqua, d.incur, d.outqu, d.outcu, d.endqu, d.endcu);
+                // 如果没有发生业务就不插入（所有的期初期末出入都为零的话）
+                if (!(d.initc == 0 && d.initq == 0 && d.incur == 0 && d.inqua == 0 && d.outcu == 0 && d.outqu == 0 && d.endcu == 0 && d.endqu == 0))
+                {
+                    // 因为批号不能为空，所以，判断如果批号为空的话，不插入批号
+                    if (d.charg == "")
+                    {
+                        sql = string.Format("insert into sapsr3.zmm001(werks,mandt,lfgja,lfmon,lfday,matnr,maktx,bklas,bkbez,meins,mseh3,charg,lgort,lgobe,initq,initc,inqua,incur,outqu,outcu,endqu,endcu)" +
+                                             "values('{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}','{10}',' ','{11}','{12}',{13},{14},{15},{16},{17},{18},{19},{20})",
+                                             d.werks, d.mandt, d.lfgja, d.lfmon, d.lfday, d.matnr, d.maktx, d.bklas, d.bkbez, d.meins, d.mseh3, d.lgort, d.lgobe,
+                                             d.initq, d.initc, d.inqua, d.incur, d.outqu, d.outcu, d.endqu, d.endcu);
+                    }
+                    else
+                    {
+                        sql = string.Format("insert into sapsr3.zmm001(werks,mandt,lfgja,lfmon,lfday,matnr,maktx,bklas,bkbez,meins,mseh3,charg,lgort,lgobe,initq,initc,inqua,incur,outqu,outcu,endqu,endcu)" +
+                                             "values('{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}','{10}','{11}','{12}','{13}',{14},{15},{16},{17},{18},{19},{20},{21})",
+                                             d.werks, d.mandt, d.lfgja, d.lfmon, d.lfday, d.matnr, d.maktx, d.bklas, d.bkbez, d.meins, d.mseh3, d.charg, d.lgort, d.lgobe,
+                                             d.initq, d.initc, d.inqua, d.incur, d.outqu, d.outcu, d.endqu, d.endcu);
+                    }
+                    list.Add(sql);
+                }
             }
-            Oracle.BatchInsert(sql);
+            OracleTransaction trans = Oracle.BeginTrans();
+            Oracle.BatchInsert(list);
+            trans.Commit();
 
+            Console.WriteLine("计算结束，共计{0}秒。", (DateTime.Now-dtBegin).TotalSeconds);
         }
 
+        /// <summary>
+        /// 显示内容
+        /// </summary>
+        /// <param name="data"></param>
+        private static void ShowData(Dictionary<string, Detail> data)
+        {
+            foreach (string k in data.Keys)
+            {
+                if (data[k].initq > 0 && data[k].endqu > 0)
+                    Console.WriteLine("{0}, {1}, {2}, {3}", data[k].matnr, data[k].maktx, data[k].initq, data[k].endqu);
+            }
+        }
+
+        /// <summary>
+        /// 计算出入库数量金额
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="ds101"></param>
+        /// <param name="tip"></param>
         private void CalcStockIn(Dictionary<string, Detail> data, DataSet ds101, string tip)
         {
             string key;
@@ -511,6 +622,7 @@ namespace ZMM001
         public string mseh3;
         public string charg;
         public string lgort;
+        public string lgobe;
 
         public decimal initq;
         public decimal initc;

@@ -40,6 +40,35 @@ namespace ZMM001.DB
 
 
         /// <summary>
+        /// 取得服务器的当前时间
+        /// </summary>
+        /// <returns></returns>
+        public static DateTime GetServerTime()
+        {
+            string strSQL = "SELECT SYSDATE FROM DUAL";             // 查询Oracle的当前时间
+            try 
+            {
+                using (OracleConnection cn = GetConnect())
+                {
+                    using (OracleCommand cm = new OracleCommand(strSQL, cn))
+                    {
+                        using (OracleDataReader dr = cm.ExecuteReader())
+                        {
+                            dr.Read();
+                            return (DateTime)dr["SYSDATE"];
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        private static OracleConnection m_conn = null;      // 已经存在的数据库联接
+
+        /// <summary>
         /// 取得数据库的联接
         /// </summary>
         /// <param name="server">服务器IP地址</param>
@@ -52,16 +81,23 @@ namespace ZMM001.DB
         {
             //Server=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=服务器地址)(PORT=端口号)))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=数据库名称)));User Id=用户名;Password=密码;Persist Security Info=True;Enlist=true;Max Pool Size=300;Min Pool Size=0;Connection Lifetime=300;
             string connect_string = String.Format("Server=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={0})(PORT={1})))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME={2})));User Id={3};Password={4};Persist Security Info=True;Enlist=true;Max Pool Size=300;Min Pool Size=0;Connection Lifetime=300;", server, port, db_name, user, password);
-
-            OracleConnection conn = new OracleConnection(connect_string);
-            try
+            if (m_conn != null)
             {
-                conn.Open();
-                return conn;
+                m_conn = new OracleConnection(connect_string);
+                try
+                {
+                    m_conn.Open();
+                }
+                catch (Exception)
+                {
+                    m_conn = null;
+                    throw;
+                }
+                return m_conn;
             }
-            catch (Exception)
+            else
             {
-                throw;
+                return m_conn;
             }
         }
         
@@ -89,16 +125,51 @@ namespace ZMM001.DB
             }
         }
 
-        public static void BatchInsert(string sql)
+        /// <summary>
+        /// 插入记录，不处理事务
+        /// </summary>
+        /// <param name="sql"></param>
+        public static void BatchInsert(List<string> list)
         {
             try
             {
                 OracleConnection conn = Oracle.GetConnect();
                 OracleCommand command = conn.CreateCommand();
-                OracleTransaction trans = conn.BeginTransaction();
-                command.CommandText = sql;
-                command.ExecuteNonQuery();
-                trans.Commit();
+                foreach (string sql in list)
+                {
+                    command.CommandText = sql;
+                    // Console.WriteLine(sql);
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        /// <summary>
+        ///  启动一个事务。
+        /// </summary>
+        /// <returns></returns>
+        public static OracleTransaction BeginTrans()
+        {
+            OracleConnection conn = Oracle.GetConnect();
+            return conn.BeginTransaction();
+        }
+
+        public static void RunNonQuery(string sql)
+        {
+            try
+            {
+                using (OracleConnection con = Oracle.GetConnect())
+                {
+                    using (OracleCommand comm = con.CreateCommand())
+                    {
+                        comm.CommandText = sql;
+                        comm.ExecuteNonQuery();
+                    }
+                }
             }
             catch (Exception)
             {
