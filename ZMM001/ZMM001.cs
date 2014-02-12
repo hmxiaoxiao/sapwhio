@@ -433,8 +433,8 @@ namespace ZMM001
                 detail.werks = m_factory;
                 detail.mandt = m_account;
                 detail.lfgja = m_year.ToString();
-                detail.lfmon = m_month.ToString();
-                detail.lfday = m_day.ToString();
+                detail.lfmon = string.Format("{0:00}", m_month);
+                detail.lfday = string.Format("{0:00}", m_day);
                 detail.matnr = dsEnd.Tables[0].Rows[i]["matnr"].ToString();
                 detail.maktx = dsEnd.Tables[0].Rows[i]["maktx"].ToString();
                 detail.bklas = dsEnd.Tables[0].Rows[i]["bklas"].ToString();
