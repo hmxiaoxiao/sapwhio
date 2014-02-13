@@ -381,7 +381,7 @@ namespace ZMM001
         private void ClearData()
         {
             string sql = string.Format("delete from sapsr3.zmm001 where mandt = '{0}' and werks = '{1}' and lfgja = '{2}' and lfmon = '{3}' and lfday = '{4}'",
-                                        m_account, m_factory, m_year, m_month, m_day);
+                                        m_account, m_factory, m_year, string.Format("{0:00}",m_month), string.Format("{0:00}",m_day));
             Oracle.RunNonQuery(sql);
         }
 
