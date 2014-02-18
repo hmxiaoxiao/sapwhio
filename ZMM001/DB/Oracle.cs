@@ -138,7 +138,7 @@ namespace ZMM001.DB
                 foreach (string sql in list)
                 {
                     command.CommandText = sql;
-                    Console.WriteLine(sql);
+                    //Console.WriteLine(sql);
                     command.ExecuteNonQuery();
                 }
             }

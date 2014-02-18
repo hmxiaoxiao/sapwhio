@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using System.Data.OracleClient;
 using ZMM001.DB;
+using System.IO;
 
 namespace ZMM001
 {
@@ -13,8 +14,22 @@ namespace ZMM001
     {
         static void Main(string[] args)
         {
-
-
+            string filename = string.Format("ZMM001{0}{1}{2}{3}{4}{5}.log",
+                                             DateTime.Now.Year,
+                                             string.Format("{0:00}", DateTime.Now.Month.ToString()),
+                                             string.Format("{0:00}", DateTime.Now.Day.ToString()),
+                                             string.Format("{0:00}", DateTime.Now.Hour.ToString()),
+                                             string.Format("{0:00}", DateTime.Now.Minute.ToString()),
+                                             string.Format("{0:00}", DateTime.Now.Second.ToString()));
+            FileStream fs = new FileStream(filename, FileMode.Create);
+            // First, save the standard output.
+            //TextWriter tmp = Console.Out;
+            StreamWriter sw = new StreamWriter(fs);
+            Console.SetOut(sw);
+            //Console.WriteLine("Hello file");
+            //Console.SetOut(tmp);
+            //Console.WriteLine("Hello World");
+            //sw.Close();
 
             // 处理参数
             ZMM001 zmm001 = null;
@@ -30,7 +45,17 @@ namespace ZMM001
                         ShowHelp();
                     break;
                 case 2:
-                    if (CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]))
+                    if (args[1].Substring(0, 1) == ">" && CheckFactory(args[0].ToUpper()))
+                            zmm001 = new ZMM001(args[0]);
+                    else if (CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]))
+                        zmm001 = new ZMM001(args[0], args[1]);
+                    else
+                        ShowHelp();
+                    break;
+                case 3:
+                    if (args[2].Substring(0, 1) == ">" &&
+                         CheckFactory(args[0].ToUpper()) &&
+                         CheckAccount(args[1]))
                         zmm001 = new ZMM001(args[0], args[1]);
                     else
                         ShowHelp();
@@ -41,23 +66,25 @@ namespace ZMM001
                     else
                         ShowHelp();
                     break;
+                case 6:
+                    if (args[5].Substring(0, 1) == ">" && CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]) && CheckYMD(args[2], args[3], args[4]))
+                        zmm001 = new ZMM001(args[0], args[1], int.Parse(args[2]), int.Parse(args[3]), int.Parse(args[4]));
+                    else
+                        ShowHelp();
+                    break;
                 default:
                     ShowHelp();
                     break;
             }
-         
+
 
             //ZMM001 zmm001 = new ZMM001(2013, 12, 1, "800", "FTS1");
             //zmm001.Run();
             //Console.WriteLine(DateTime.Now.ToLongTimeString());
             if (zmm001 != null)
-            {
-                Console.WriteLine(DateTime.Now.ToString());
                 zmm001.Run();
-                Console.WriteLine(DateTime.Now.ToLongTimeString());
-            }
-            Console.WriteLine("按任意键继续");
-            Console.ReadLine();
+
+            sw.Close();
         }
 
         /// <summary>
@@ -85,6 +112,9 @@ namespace ZMM001
         /// <returns></returns>
         private static bool CheckAccount(string account)
         {
+            if (account.Substring(0, 1) == ">")
+                return true;
+
             if (account == "800" || account == "810")
             {
                 return true;
