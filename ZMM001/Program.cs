@@ -21,18 +21,13 @@ namespace ZMM001
                                              string.Format("{0:00}", DateTime.Now.Hour.ToString()),
                                              string.Format("{0:00}", DateTime.Now.Minute.ToString()),
                                              string.Format("{0:00}", DateTime.Now.Second.ToString()));
-            FileStream fs = new FileStream(filename, FileMode.Create);
-            // First, save the standard output.
-            //TextWriter tmp = Console.Out;
-            StreamWriter sw = new StreamWriter(fs);
-            Console.SetOut(sw);
-            //Console.WriteLine("Hello file");
-            //Console.SetOut(tmp);
-            //Console.WriteLine("Hello World");
-            //sw.Close();
+
+            // 计算上个月的月末的年月日
+            DateTime lastMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
 
             // 处理参数
-            ZMM001 zmm001 = null;
+            ZMM001 zmm001_now = null;
+            ZMM001 zmm001_lastmonth = null;
             switch (args.Length)
             {
                 case 0:
@@ -40,35 +35,26 @@ namespace ZMM001
                     break;
                 case 1:
                     if (CheckFactory(args[0].ToUpper()))
-                        zmm001 = new ZMM001(args[0]);
+                    {
+                        zmm001_now = new ZMM001(args[0]);
+                        zmm001_lastmonth = new ZMM001(args[0], "800", lastMonth.Year, lastMonth.Month, lastMonth.Day);
+                    }
                     else
                         ShowHelp();
                     break;
                 case 2:
-                    if (args[1].Substring(0, 1) == ">" && CheckFactory(args[0].ToUpper()))
-                            zmm001 = new ZMM001(args[0]);
-                    else if (CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]))
-                        zmm001 = new ZMM001(args[0], args[1]);
-                    else
-                        ShowHelp();
-                    break;
-                case 3:
-                    if (args[2].Substring(0, 1) == ">" &&
-                         CheckFactory(args[0].ToUpper()) &&
-                         CheckAccount(args[1]))
-                        zmm001 = new ZMM001(args[0], args[1]);
+                    if (CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]))
+                    {
+                        zmm001_now = new ZMM001(args[0], args[1]);
+                    }
                     else
                         ShowHelp();
                     break;
                 case 5:
                     if (CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]) && CheckYMD(args[2], args[3], args[4]))
-                        zmm001 = new ZMM001(args[0], args[1], int.Parse(args[2]), int.Parse(args[3]), int.Parse(args[4]));
-                    else
-                        ShowHelp();
-                    break;
-                case 6:
-                    if (args[5].Substring(0, 1) == ">" && CheckFactory(args[0].ToUpper()) && CheckAccount(args[1]) && CheckYMD(args[2], args[3], args[4]))
-                        zmm001 = new ZMM001(args[0], args[1], int.Parse(args[2]), int.Parse(args[3]), int.Parse(args[4]));
+                    {
+                        zmm001_now = new ZMM001(args[0], args[1], int.Parse(args[2]), int.Parse(args[3]), int.Parse(args[4]));
+                    }
                     else
                         ShowHelp();
                     break;
@@ -77,14 +63,32 @@ namespace ZMM001
                     break;
             }
 
+            // 如果参数不正确，就直接退出
+            if (zmm001_now == null)
+                return;
 
-            //ZMM001 zmm001 = new ZMM001(2013, 12, 1, "800", "FTS1");
-            //zmm001.Run();
-            //Console.WriteLine(DateTime.Now.ToLongTimeString());
-            if (zmm001 != null)
-                zmm001.Run();
 
-            sw.Close();
+
+
+            try
+            {
+                FileStream fs = new FileStream(filename, FileMode.Create);
+                StreamWriter sw = new StreamWriter(fs);
+                Console.SetOut(sw);
+
+                zmm001_now.Run();
+                if (zmm001_lastmonth != null)
+                    zmm001_lastmonth.Run();
+
+                sw.Close();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("发生未知错误，原因如下:{0},{1}",
+                                  Environment.NewLine,
+                                  e);
+                return;
+            }
         }
 
         /// <summary>

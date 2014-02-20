@@ -48,7 +48,7 @@ namespace ZMM001
         /// <param name="factory"></param>
         public ZMM001(string factory)
         {
-            m_factory = factory;
+            m_factory = factory.ToUpper();
             m_account = "800";
             SetQueryDefaultDateTime();
         }
@@ -61,7 +61,7 @@ namespace ZMM001
         /// <param name="account"></param>
         public ZMM001(string factory, string account)
         {
-            m_factory = factory;
+            m_factory = factory.ToUpper();
             m_account = account;
             SetQueryDefaultDateTime();
         }
@@ -80,7 +80,7 @@ namespace ZMM001
             m_month = month;
             m_day = day;
             m_account = account;
-            m_factory = factory;
+            m_factory = factory.ToUpper();
         }
 
         /// <summary>
@@ -306,7 +306,6 @@ namespace ZMM001
             strSQL = strSQL + "       a.mandt = g.mandt And a.lifnr = g.lifnr";
            
             strSQL = strSQL + " order by  matnr, charg, lgort ";
-
             return Oracle.Query(strSQL);
         }
 
@@ -370,7 +369,6 @@ namespace ZMM001
                 strSQL = strSQL + "                 where mandt = " + account + " and budat >= " + min_ymd + " and budat < " + max_ymd + ") ";
                 strSQL = strSQL + " group by matnr, lgort, charg ";
             }
-
             return Oracle.Query(strSQL);
         }
 
@@ -392,7 +390,7 @@ namespace ZMM001
         {
             DateTime dtBegin = DateTime.Now;
             Console.WriteLine("开始计算事业部:{0}, 帐套:{1}, {2}年{3}月{4}日", m_factory, m_account, m_year, m_month, m_day);
-            Console.WriteLine("开始时间：{0}", dtBegin.ToString());
+            Console.WriteLine("时间：{0}", dtBegin.ToString());
 
             // 清空数据
             ClearData();
@@ -403,10 +401,13 @@ namespace ZMM001
             // 取得所有的数据
             DataSet dsEnd, dsBegin, ds101, ds102, ds122, ds123, ds161, ds162, dsX61, dsX62, ds541, ds542;
             dsEnd = this.GetInit(m_year, m_month, m_account, m_factory);
+            Console.WriteLine("读取期末数据完成：{0}", DateTime.Now);
+
             if (m_month == 1)
                 dsBegin = GetInit(m_year - 1, 12, m_account, m_factory);
             else
                 dsBegin = GetInit(m_year, m_month - 1, m_account, m_factory);
+            Console.WriteLine("读取期初数据完成：{0}", DateTime.Now);
 
             ds101 = GetStockIn(m_year, m_month, m_account, m_factory, "101");
             ds102 = GetStockIn(m_year, m_month, m_account, m_factory, "102");
@@ -418,6 +419,7 @@ namespace ZMM001
             dsX62 = GetStockIn(m_year, m_month, m_account, m_factory, "X62");
             ds541 = GetStockIn(m_year, m_month, m_account, m_factory, "541");
             ds542 = GetStockIn(m_year, m_month, m_account, m_factory, "542");
+            Console.WriteLine("读取所有入库数据完成：{0}", DateTime.Now);
 
             string key;
             Regex reg = new Regex("'");
