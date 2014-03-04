@@ -564,25 +564,25 @@ namespace ZMM001
         /// 计算出入库数量金额
         /// </summary>
         /// <param name="data"></param>
-        /// <param name="ds101"></param>
+        /// <param name="ds"></param>
         /// <param name="tip"></param>
-        private void CalcStockIn(Dictionary<string, Detail> data, DataSet ds101, string tip)
+        private void CalcStockIn(Dictionary<string, Detail> data, DataSet ds, string tip)
         {
             string key;
             // 各种出入库类型的统计
-            for (int i = 0; i < ds101.Tables[0].Rows.Count; i++)
+            for (int i = 0; i < ds.Tables[0].Rows.Count; i++)
             {
-                if (ds101.Tables[0].Rows[i]["charg"].ToString() == " ")
+                if (ds.Tables[0].Rows[i]["charg"].ToString() == " ")
                 {
-                    key = ds101.Tables[0].Rows[i]["matnr"].ToString().Trim() + ":" +
-                          ds101.Tables[0].Rows[i]["charg"].ToString().Trim() + ":" +
-                          ds101.Tables[0].Rows[i]["lgort"].ToString().Trim();
+                    key = ds.Tables[0].Rows[i]["matnr"].ToString().Trim() + ":" +
+                          ds.Tables[0].Rows[i]["charg"].ToString().Trim() + ":" +
+                          ds.Tables[0].Rows[i]["lgort"].ToString().Trim();
                 }
                 else
                 {
-                    key = ds101.Tables[0].Rows[i]["matnr"].ToString() + ":" +
-                          ds101.Tables[0].Rows[i]["charg"].ToString() + ":" +
-                          ds101.Tables[0].Rows[i]["lgort"].ToString();
+                    key = ds.Tables[0].Rows[i]["matnr"].ToString() + ":" +
+                          ds.Tables[0].Rows[i]["charg"].ToString() + ":" +
+                          ds.Tables[0].Rows[i]["lgort"].ToString();
                 }
                 if (!data.ContainsKey(key))
                 {
@@ -592,9 +592,35 @@ namespace ZMM001
                 {
                     Detail d = data[key];
 
-                    // 设置入库数量金额
-                    d.inqua += decimal.Parse(ds101.Tables[0].Rows[i]["menge"].ToString());
-                    d.incur += decimal.Parse(ds101.Tables[0].Rows[i]["dmbtr"].ToString());
+                    switch (tip)
+                    {
+                        case "101":
+                        case "123":
+                        case "162":
+                        case "541":
+                            // 设置入库数量金额
+                            d.inqua += decimal.Parse(ds.Tables[0].Rows[i]["menge"].ToString());
+                            d.incur += decimal.Parse(ds.Tables[0].Rows[i]["dmbtr"].ToString());
+                            break;
+                        case "X61":
+                            if (d.bklas == "8011")
+                            {
+                                d.inqua += decimal.Parse(ds.Tables[0].Rows[i]["menge"].ToString());
+                                d.incur += decimal.Parse(ds.Tables[0].Rows[i]["dmbtr"].ToString());
+                            }
+                            break;
+                        case "X62":
+                            if (d.bklas == "8011")
+                            {
+                                d.inqua -= decimal.Parse(ds.Tables[0].Rows[i]["menge"].ToString());
+                                d.incur -= decimal.Parse(ds.Tables[0].Rows[i]["dmbtr"].ToString());
+                            }
+                            break;
+                        default:
+                            d.inqua -= decimal.Parse(ds.Tables[0].Rows[i]["menge"].ToString());
+                            d.incur -= decimal.Parse(ds.Tables[0].Rows[i]["dmbtr"].ToString());
+                            break;
+                    }
 
                     // 设置出库数量金额
                     d.outcu = d.initc + d.incur - d.endcu;
