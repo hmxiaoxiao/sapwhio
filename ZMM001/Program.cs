@@ -14,13 +14,6 @@ namespace ZMM001
     {
         static void Main(string[] args)
         {
-            string filename = string.Format("ZMM001{0}{1}{2}{3}{4}{5}.log",
-                                             DateTime.Now.Year,
-                                             string.Format("{0:00}", DateTime.Now.Month.ToString()),
-                                             string.Format("{0:00}", DateTime.Now.Day.ToString()),
-                                             string.Format("{0:00}", DateTime.Now.Hour.ToString()),
-                                             string.Format("{0:00}", DateTime.Now.Minute.ToString()),
-                                             string.Format("{0:00}", DateTime.Now.Second.ToString()));
 
             // 计算上个月的月末的年月日
             DateTime lastMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
@@ -67,11 +60,17 @@ namespace ZMM001
             if (zmm001_now == null)
                 return;
 
-
-
-
+            // 执行运算
             try
             {
+                string filename = string.Format("{0}{1}{2}{3}{4}{5}{6}.log",
+                                 DateTime.Now.Year,
+                                 string.Format("{0:00}", DateTime.Now.Month),
+                                 string.Format("{0:00}", DateTime.Now.Day),
+                                 string.Format("{0:00}", DateTime.Now.Hour),
+                                 string.Format("{0:00}", DateTime.Now.Minute),
+                                 args[0],                               // FTS1~FTS6
+                                 string.Format("{0:00}", DateTime.Now.Second));
                 FileStream fs = new FileStream(filename, FileMode.Create);
                 StreamWriter sw = new StreamWriter(fs);
                 Console.SetOut(sw);
